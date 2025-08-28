@@ -9,8 +9,8 @@ const anthropic = new Anthropic({
 interface GA4SuccessResponse {
   success: true;
   rowCount: number;
-  rows: any[];
-  totals: any;
+  rows: Record<string, string>[];
+  totals: Record<string, string>;
   dateRange: {
     startDate: string;
     endDate: string;
@@ -24,7 +24,6 @@ interface GA4ErrorResponse {
 
 type GA4Response = GA4SuccessResponse | GA4ErrorResponse;
 
-// Initialize GA4 client
 const getGA4Client = () => {
   return new BetaAnalyticsDataClient({
     keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
@@ -53,22 +52,22 @@ const runGA4Report = async (
       limit,
     });
 
-    const rows = response.rows?.map((row: any) => {
-      const result: any = {};
+    const rows = response.rows?.map((row) => {
+      const result: Record<string, string> = {};
       
-      row.dimensionValues?.forEach((value: any, index: number) => {
-        result[dimensions[index]] = value.value;
+      row.dimensionValues?.forEach((value, index) => {
+        result[dimensions[index]] = value.value || '';
       });
       
-      row.metricValues?.forEach((value: any, index: number) => {
-        result[metrics[index]] = value.value;
+      row.metricValues?.forEach((value, index) => {
+        result[metrics[index]] = value.value || '';
       });
       
       return result;
     }) || [];
 
-    const totals = response.totals?.[0]?.metricValues?.reduce((acc: any, value: any, index: number) => {
-      acc[metrics[index]] = value.value;
+    const totals = response.totals?.[0]?.metricValues?.reduce((acc: Record<string, string>, value, index) => {
+      acc[metrics[index]] = value.value || '';
       return acc;
     }, {}) || {};
 
@@ -96,31 +95,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // Analyze the message to determine what GA4 data to fetch
     let ga4Data: GA4Response | null = null;
     const lowerMessage = message.toLowerCase();
 
-    // Simple keyword detection for common queries
     if (lowerMessage.includes('active users') || lowerMessage.includes('traffic')) {
       if (lowerMessage.includes('city') || lowerMessage.includes('florida') || lowerMessage.includes('location')) {
-        // Traffic by city
         ga4Data = await runGA4Report(['city'], ['activeUsers', 'sessions'], '7daysAgo', 'yesterday', 20);
       } else if (lowerMessage.includes('device') || lowerMessage.includes('mobile') || lowerMessage.includes('desktop')) {
-        // Traffic by device
         ga4Data = await runGA4Report(['deviceCategory'], ['activeUsers', 'sessions', 'bounceRate'], '7daysAgo', 'yesterday');
       } else {
-        // General active users
         ga4Data = await runGA4Report(['date'], ['activeUsers', 'sessions'], '7daysAgo', 'yesterday');
       }
     } else if (lowerMessage.includes('vehicle') || lowerMessage.includes('inventory') || lowerMessage.includes('asc_item_pageviews')) {
-      // Vehicle inventory analysis - using your custom event
       ga4Data = await runGA4Report(['eventName', 'customEvent:item_condition'], ['eventCount'], '30daysAgo', 'yesterday', 50);
     } else if (lowerMessage.includes('campaign') || lowerMessage.includes('marketing') || lowerMessage.includes('source')) {
-      // Marketing campaign analysis
       ga4Data = await runGA4Report(['sessionSource', 'sessionMedium'], ['sessions', 'conversions'], '30daysAgo', 'yesterday', 20);
     }
 
-    // Create the prompt with actual data if available
     let dataContext = '';
     if (ga4Data?.success) {
       dataContext = `
@@ -132,7 +123,7 @@ Total Rows: ${ga4Data.rowCount}
 Totals: ${JSON.stringify(ga4Data.totals, null, 2)}
 
 Top Results:
-${ga4Data.rows.slice(0, 10).map((row: any, index: number) => 
+${ga4Data.rows.slice(0, 10).map((row, index) => 
   `${index + 1}. ${Object.entries(row).map(([key, value]) => `${key}: ${value}`).join(', ')}`
 ).join('\n')}
 

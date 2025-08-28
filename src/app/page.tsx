@@ -99,7 +99,7 @@ export default function Home() {
                     What would you like to know?
                   </h2>
                   <p className="text-slate-600 max-w-md mx-auto">
-                    Ask me anything about your dealership's performance, traffic patterns, or customer behavior.
+                    Ask me anything about your dealership&apos;s performance, traffic patterns, or customer behavior.
                   </p>
                 </div>
               </div>
