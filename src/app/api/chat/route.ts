@@ -112,8 +112,25 @@ export async function POST(request: NextRequest) {
       ga4Data = await runGA4Report(['sessionSource', 'sessionMedium'], ['sessions', 'conversions'], '30daysAgo', 'yesterday', 20);
     }
 
+    // Generate chart data structure
+    let chartData = null;
     let dataContext = '';
+    
     if (ga4Data?.success) {
+      // Convert GA4 data to chart format
+      chartData = {
+        data: ga4Data.rows.slice(0, 10).map(row => {
+          const chartRow: any = {};
+          Object.entries(row).forEach(([key, value]) => {
+            chartRow[key] = isNaN(Number(value)) ? value : Number(value);
+          });
+          return chartRow;
+        }),
+        xKey: Object.keys(ga4Data.rows[0] || {})[0] || 'date',
+        yKey: Object.keys(ga4Data.rows[0] || {}).filter(key => !isNaN(Number(ga4Data.rows[0][key]))) || [],
+        type: 'bar' as const
+      };
+
       dataContext = `
 
 REAL GA4 DATA FROM YOUR DEALERSHIP:
@@ -154,7 +171,22 @@ ${dataContext}
 
 User question: ${message}
 
-Please provide a detailed, actionable analysis. Format your response in a clear, professional manner that a marketing team can understand and act upon. If you have real data above, focus on that. If not, explain what specific GA4 reports would be needed.`
+Please provide a detailed, actionable analysis formatted using markdown for better readability:
+
+- Use **bold** for important metrics and key findings
+- Use headers (##, ###) to structure your response
+- Use bullet points and numbered lists for recommendations
+- Use tables when showing data comparisons
+- Use code blocks (\`\`\`) for specific GA4 dimensions/metrics
+- Format numbers clearly (e.g., **1,234 sessions** instead of 1234)
+
+Structure your response with clear sections like:
+## Key Findings
+## Data Analysis  
+## Recommendations
+## Next Steps
+
+Make it professional and actionable for a marketing team.`
       }]
     });
 
@@ -162,7 +194,10 @@ Please provide a detailed, actionable analysis. Format your response in a clear,
       ? response.content[0].text 
       : 'Sorry, I could not process your request.';
 
-    return NextResponse.json({ response: responseText });
+    return NextResponse.json({ 
+      response: responseText,
+      chartData: chartData 
+    });
 
   } catch (error) {
     console.error('API Error:', error);

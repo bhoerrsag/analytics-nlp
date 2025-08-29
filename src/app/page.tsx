@@ -1,12 +1,23 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import FormattedMessage from '../components/FormattedMessage';
+import { AnalyticsChart } from '../components/Charts';
+
+interface ChartData {
+  data: any[];
+  xKey: string;
+  yKey: string | string[];
+  type: 'line' | 'area' | 'bar' | 'pie';
+  title?: string;
+}
 
 interface Message {
   id: string;
   content: string;
   isUser: boolean;
   timestamp: Date;
+  chartData?: ChartData;
 }
 
 export default function Home() {
@@ -51,6 +62,7 @@ export default function Home() {
         content: data.response || 'Sorry, I encountered an error.',
         isUser: false,
         timestamp: new Date(),
+        chartData: data.chartData || undefined,
       };
 
       setMessages(prev => [...prev, aiMessage]);
@@ -165,14 +177,29 @@ export default function Home() {
                         {message.isUser ? '👤' : 'A'}
                       </div>
 
-                      <div className={`px-4 py-2 rounded-2xl ${
+                      <div className={`px-4 py-3 rounded-2xl ${
                         message.isUser
                           ? 'bg-black text-white rounded-br-sm'
                           : 'bg-gray-100 border border-gray-300 text-black rounded-bl-sm'
                       }`}>
-                        <p className="text-sm leading-relaxed">
-                          {message.content}
-                        </p>
+                        {message.isUser ? (
+                          <p className="text-sm leading-relaxed">
+                            {message.content}
+                          </p>
+                        ) : (
+                          <>
+                            <FormattedMessage content={message.content} />
+                            {message.chartData && (
+                              <AnalyticsChart
+                                data={message.chartData.data}
+                                type={message.chartData.type}
+                                xKey={message.chartData.xKey}
+                                yKey={message.chartData.yKey}
+                                title={message.chartData.title}
+                              />
+                            )}
+                          </>
+                        )}
                         <p className={`text-xs mt-1 ${
                           message.isUser ? 'text-gray-300' : 'text-gray-500'
                         }`}>
